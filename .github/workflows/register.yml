@@ -2,7 +2,7 @@ name: Process Registration
 
 on:
   issues:
-    types: [opened, labeled]
+    types: [opened]
 
 jobs:
   register:
