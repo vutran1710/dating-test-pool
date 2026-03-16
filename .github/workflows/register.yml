@@ -2,11 +2,11 @@ name: Process Registration
 
 on:
   issues:
-    types: [opened]
+    types: [opened, labeled]
 
 jobs:
   register:
-    if: contains(github.event.issue.body, '<!-- registration-request -->')
+    if: contains(github.event.issue.labels.*.name, 'registration')
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -24,8 +24,8 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Extract hex blob from code block (between ``` fences after **Profile Blob:**)
-          BLOB_HEX=$(echo "$ISSUE_BODY" | awk '/\*\*Profile Blob:\*\*/{found=1; next} found && /^```/{if(inside){exit}else{inside=1; next}} found && inside{print}' | tr -d '[:space:]')
+          # First line = hex blob
+          BLOB_HEX=$(echo "$ISSUE_BODY" | head -1 | tr -d '[:space:]')
 
           if [ -z "$BLOB_HEX" ]; then
             echo "::error::Missing blob in issue body"
