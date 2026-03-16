@@ -25,7 +25,7 @@ jobs:
           set -euo pipefail
 
           # Extract hex blob from code block (between ``` fences after **Profile Blob:**)
-          BLOB_HEX=$(echo "$ISSUE_BODY" | sed -n '/\*\*Profile Blob:\*\*/,/```/{/```/!p}' | grep -v '^\*\*' | tr -d '[:space:]')
+          BLOB_HEX=$(echo "$ISSUE_BODY" | awk '/\*\*Profile Blob:\*\*/{found=1; next} found && /^```/{if(inside){exit}else{inside=1; next}} found && inside{print}' | tr -d '[:space:]')
 
           if [ -z "$BLOB_HEX" ]; then
             echo "::error::Missing blob in issue body"
