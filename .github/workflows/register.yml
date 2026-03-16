@@ -18,26 +18,34 @@ jobs:
         env:
           ISSUE_BODY: ${{ github.event.issue.body }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_AUTHOR_ID: ${{ github.event.issue.user.id }}
+          POOL_SALT: ${{ secrets.POOL_SALT }}
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
 
-          # Extract fields from issue body (between ``` fences after each header)
-          USER_HASH=$(echo "$ISSUE_BODY" | sed -n '/\*\*User Hash:\*\*/,/```/{/```/!p}' | grep -v '^\*\*' | tr -d '[:space:]')
-          PUB_KEY=$(echo "$ISSUE_BODY" | sed -n '/\*\*Public Key:\*\*/,/```/{/```/!p}' | grep -v '^\*\*' | tr -d '[:space:]')
+          # Extract hex blob from code block (between ``` fences after **Profile Blob:**)
           BLOB_HEX=$(echo "$ISSUE_BODY" | sed -n '/\*\*Profile Blob:\*\*/,/```/{/```/!p}' | grep -v '^\*\*' | tr -d '[:space:]')
 
-          if [ -z "$USER_HASH" ] || [ -z "$PUB_KEY" ] || [ -z "$BLOB_HEX" ]; then
-            echo "::error::Missing required fields in issue body"
+          if [ -z "$BLOB_HEX" ]; then
+            echo "::error::Missing blob in issue body"
+            gh issue comment "$ISSUE_NUMBER" --body "Registration rejected: missing profile blob."
+            gh issue close "$ISSUE_NUMBER" --reason "not planned"
+            exit 0
+          fi
+
+          if [ -z "$POOL_SALT" ]; then
+            echo "::error::POOL_SALT secret not configured"
             exit 1
           fi
 
-          # Check if user already registered
+          # Compute filename: SHA256(salt:repo:github:author_id)[:16]
+          REPO="${{ github.repository }}"
+          USER_HASH=$(echo -n "${POOL_SALT}:${REPO}:github:${ISSUE_AUTHOR_ID}" | sha256sum | cut -c1-16)
+
+          # Check if user already registered (update if so)
           if [ -f "users/${USER_HASH}.bin" ]; then
-            echo "::warning::User already registered: ${USER_HASH:0:12}"
-            gh issue comment "$ISSUE_NUMBER" --body "Registration rejected: user already registered."
-            gh issue close "$ISSUE_NUMBER" --reason "not planned"
-            exit 0
+            echo "::notice::User ${USER_HASH} already registered, updating profile"
           fi
 
           # Convert hex blob to binary and write .bin file
@@ -48,7 +56,7 @@ jobs:
           git config user.name "dating-bot"
           git config user.email "bot@dating-pool.dev"
           git add "users/${USER_HASH}.bin"
-          git commit -m "Register user ${USER_HASH:0:12}"
+          git commit -m "Register user ${USER_HASH}"
           git push
 
       - name: Close issue
