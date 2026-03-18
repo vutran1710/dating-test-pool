@@ -33,8 +33,24 @@ jobs:
         run: |
           set -euo pipefail
 
-          # First line = hex blob
-          BLOB_HEX=$(echo "$ISSUE_BODY" | head -1 | tr -d '[:space:]')
+          # Determine if operator is registering on behalf of someone
+          # Format: "provider:user_id\n<blob_hex>" or just "<blob_hex>"
+          REPO_OWNER=$(echo "$REPO" | cut -d/ -f1)
+          ISSUE_AUTHOR=$(gh api "repos/$REPO/issues/$ISSUE_NUMBER" --jq '.user.login')
+
+          FIRST_LINE=$(echo "$ISSUE_BODY" | head -1 | tr -d '[:space:]')
+          if [ "$ISSUE_AUTHOR" = "$REPO_OWNER" ] && echo "$FIRST_LINE" | grep -q ':'; then
+            # Operator registration: first line = provider:user_id
+            PROVIDER=$(echo "$FIRST_LINE" | cut -d: -f1)
+            USER_ID=$(echo "$FIRST_LINE" | cut -d: -f2-)
+            BLOB_HEX=$(echo "$ISSUE_BODY" | tail -n +2 | head -1 | tr -d '[:space:]')
+            echo "Operator registration: provider=$PROVIDER user_id=$USER_ID"
+          else
+            # Self registration: first line = blob hex
+            PROVIDER="github"
+            USER_ID="$ISSUE_AUTHOR_ID"
+            BLOB_HEX="$FIRST_LINE"
+          fi
 
           if [ -z "$BLOB_HEX" ]; then
             echo "::error::Missing blob in issue body"
@@ -54,8 +70,8 @@ jobs:
           # Compute hashes + encrypt for user
           OUTPUT=$(./regcrypt \
             --pool-url "$REPO" \
-            --provider "github" \
-            --user-id "$ISSUE_AUTHOR_ID" \
+            --provider "$PROVIDER" \
+            --user-id "$USER_ID" \
             --salt "$POOL_SALT" \
             --user-pubkey "$PUB_KEY")
 
