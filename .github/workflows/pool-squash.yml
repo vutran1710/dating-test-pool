@@ -16,12 +16,22 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Download action-tool
+      - name: Check for users
+        id: check
         run: |
-          curl -sL https://github.com/vutran1710/regcrypt/releases/latest/download/action-tool-linux-amd64 -o action-tool
+          if [ ! -d users ] || [ -z "$(ls users/*.bin 2>/dev/null)" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "No users found — skipping squash"
+          fi
+
+      - name: Download action-tool
+        if: steps.check.outputs.skip != 'true'
+        run: |
+          curl -sL https://github.com/vutran1710/openpool/releases/latest/download/action-tool-linux-amd64 -o action-tool
           chmod +x action-tool
 
       - name: Squash + cleanup stale interests
+        if: steps.check.outputs.skip != 'true'
         env:
           MAX_COMMIT_COUNT: ${{ vars.MAX_COMMIT_COUNT || '50' }}
           REPO: ${{ github.repository }}

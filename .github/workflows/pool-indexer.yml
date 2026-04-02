@@ -13,12 +13,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download action-tool
+      - name: Check for users
+        id: check
         run: |
-          curl -sL https://github.com/vutran1710/regcrypt/releases/latest/download/action-tool-linux-amd64 -o action-tool
+          if [ ! -d users ] || [ -z "$(ls users/*.bin 2>/dev/null)" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "No users found — skipping index build"
+          fi
+
+      - name: Download action-tool
+        if: steps.check.outputs.skip != 'true'
+        run: |
+          curl -sL https://github.com/vutran1710/openpool/releases/latest/download/action-tool-linux-amd64 -o action-tool
           chmod +x action-tool
 
       - name: Rebuild and upload index
+        if: steps.check.outputs.skip != 'true'
         env:
           OPERATOR_PRIVATE_KEY: ${{ secrets.OPERATOR_PRIVATE_KEY }}
           POOL_SALT: ${{ secrets.POOL_SALT }}

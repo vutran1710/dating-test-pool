@@ -16,7 +16,7 @@ jobs:
 
       - name: Download action-tool
         run: |
-          curl -sL https://github.com/vutran1710/regcrypt/releases/latest/download/action-tool-linux-amd64 -o action-tool
+          curl -sL https://github.com/vutran1710/openpool/releases/latest/download/action-tool-linux-amd64 -o action-tool
           chmod +x action-tool
 
       - name: Register
